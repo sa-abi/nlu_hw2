@@ -64,14 +64,10 @@ class PositionalEncoding(nn.Module):
             pe: torch.tensor of size (max_len, d_model)
             
         """
-        
-        ### YOUR CODE GOES HERE ########
-        ################################
-        ################################
+        pe = torch.zeros(max_len, d_model)
+        pe[:, 0::2] = torch.sin(torch.linspace(0, max_len - 1, max_len).view(-1, 1) * torch.exp(torch.linspace(0, d_model - 2, d_model // 2) * -(math.log(10000.0) / d_model)))
+        pe[:, 1::2] = torch.cos(torch.linspace(0, max_len - 1, max_len).view(-1, 1) * torch.exp(torch.linspace(0, d_model - 2, d_model // 2) * -(math.log(10000.0) / d_model)))
 
-        raise NotImplementedError
-
-        
         # Do not modify this.
         self.register_buffer("pe", pe)
 
@@ -97,6 +93,33 @@ def greedy_decode(model, src, src_mask, max_len, start_symbol):
         )
     return ys
 
+
+def beam_search_decode(model, src, src_mask, max_len, start_symbol, beam_size, end_idx):
+    
+    "Implement beam search decoding with 'beam_size' width"
+    
+    """
+    Parameters:
+        model: instance of EncoderDecoder()
+        src: input tensor of size (1, inp_seq_len)
+        src_mask: input mask of size (1, 1, inp_seq_len)
+        max_len: int, maximum output length
+        start_symbol: int, index of start symbol
+        beam_size: int, width of beam in beam search
+        end_idx: int, index of end of sentence symbol
+        
+    Return:
+        ys: output tensor of size (1, out_seq_len)
+        
+    """
+    
+    
+    # Output of encoder
+    memory = model.encode(src, src_mask)
+    
+    # Initialize start of sequence with start symbol
+    ys = torch.zeros(1,1).fill_(start_symbol).type_as(src.data).cuda()
+    
 
 def beam_search_decode(model, src, src_mask, max_len, start_symbol, beam_size, end_idx):
     
@@ -157,11 +180,9 @@ def beam_search_decode(model, src, src_mask, max_len, start_symbol, beam_size, e
         ### YOUR CODE GOES HERE ########
         ################################
         ################################
-        
-        
-        raise NotImplementedError
-        
-        
+        scores, idx = torch.topk((scores.unsqueeze(1) + prob).view(-1), beam_size)
+        ys = torch.cat([ys[(idx // vocab_size)], (idx % vocab_size).unsqueeze(1)], dim=1)
+
         ### YOUR CODE ENDS HERE #######
         
         # If all beams are finished, exit

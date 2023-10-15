@@ -69,7 +69,6 @@ class DecoderLayer(nn.Module):
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
         return self.sublayer[2](x, self.feed_forward)
     
-    
 def attention(query, key, value, mask=None, dropout=None):
     "Compute 'Scaled Dot Product Attention'"
     """
@@ -88,16 +87,14 @@ def attention(query, key, value, mask=None, dropout=None):
         attn_weights: torch.tensor of size (N, Lq, Lk)
     
     """
-    attn_weights = (query @ torch.transpose(key, 1, 2)) / torch.sqrt(query.size(2))
+    attn_weights = torch.matmul(query, torch.transpose(key, -2, -1)) / math.sqrt(query.size(-1))
     if(mask is not None):
-        attn_weights = attn_weights.masked_fill(mask == 0, float('-inf'))
+        attn_weights = attn_weights.masked_fill(mask.unsqueeze(1) == 0, float('-inf'))
     attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-    attn_out = attn_weights@value
     if(dropout is not None):
-        attn_out = dropout(attn_out)
+        attn_weights = dropout(attn_weights)
+    attn_out = torch.matmul(attn_weights, value)
     return attn_out, attn_weights
-
-
 
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
@@ -130,20 +127,21 @@ class MultiHeadedAttention(nn.Module):
             attn_out: Output, size (N, Lq, d_model)
 
         """
-        
+        N = query.shape[0]
+        if(mask is not None):
+            mask = mask.unsqueeze(1)
+        query = self.linears[0](query).view(N, -1, self.h, self.d_k).transpose(1, 2)
+        key = self.linears[1](key).view(N, -1, self.h, self.d_k).transpose(1, 2)
+        value = self.linears[2](value).view(N, -1, self.h, self.d_k).transpose(1, 2)
+        o, self.attn = attention(query, key, value, mask=mask, dropout=self.dropout)
+
+        o = (o.transpose(1, 2).contiguous().view(N, -1, self.h * self.d_k))
+
+        return self.linears[-1](o)
         # Make sure to apply a final linear transformation to the output (HINT: self.linears)
         # as defined in the transformers paper (https://arxiv.org/pdf/1706.03762.pdf)
         # Make sure to use the 'mask'
         
-        ### YOUR CODE GOES HERE ########
-        ################################
-        ################################
-        
-        
-        raise NotImplementedError
-        
-    
-    
 class PositionwiseFeedForward(nn.Module):
     "Implements FFN equation."
 
